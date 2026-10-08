@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "local.translator",
+  "name": "Translator",
+  "version": "0.1.0",
+  "author": "Victor Fiamoncini",
+  "description": "Translator pill (DeepL or Claude) with a quick-translate popup",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Translator",
+    "description": "Translator pill (DeepL or Claude) with a quick-translate popup",
+    "category": "Tools",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

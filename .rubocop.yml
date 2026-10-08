@@ -1,0 +1,39 @@
+plugins:
+  - rubocop-minitest
+  - rubocop-rake
+
+AllCops:
+  TargetRubyVersion: 4.0
+  NewCops: enable
+  SuggestExtensions: false
+  Include:
+    - '**/*.rb'
+    - 'bin/*'
+    - 'Gemfile'
+    - 'Rakefile'
+  Exclude:
+    - 'vendor/**/*'
+    - '.idea/**/*'
+
+Layout/LineLength:
+  Max: 120
+
+# The CLI is a script, not a library; top-level helpers are intentional.
+Style/TopLevelMethodDefinition:
+  Exclude:
+    - 'bin/*'
+
+Style/MixinUsage:
+  Exclude:
+    - 'bin/*'
+
+Metrics/MethodLength:
+  Max: 20
+
+Metrics/BlockLength:
+  Exclude:
+    - 'test/**/*'
+
+Metrics/ClassLength:
+  Exclude:
+    - 'test/**/*'

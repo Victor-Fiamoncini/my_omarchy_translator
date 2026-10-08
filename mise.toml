@@ -1,0 +1,42 @@
+# Run `mise tasks` to list, `mise run <task>` to execute.
+
+# mise.toml wins over .tool-versions, which stays for asdf users: keep the
+# two Ruby versions in sync.
+[tools]
+ruby = "4.0.2"
+
+[tasks.setup]
+description = "Install development gems"
+run = "bundle install"
+
+[tasks.test]
+description = "Run the Ruby test suite"
+run = "bundle exec rake test"
+
+[tasks.lint]
+description = "Run RuboCop"
+run = "bundle exec rubocop"
+
+[tasks."lint:fix"]
+description = "Autocorrect safe RuboCop offenses"
+run = "bundle exec rubocop -a"
+
+[tasks."lint:qml"]
+description = "Lint QML with qmllint against the Omarchy shell modules"
+run = "script/lint-qml"
+
+[tasks."test:qml"]
+description = "Run the QML tests (PanelLogic.js) with qmltestrunner"
+run = "script/test-qml"
+
+[tasks.validate]
+description = "Validate the Omarchy plugin manifest"
+run = "omarchy plugin validate ."
+
+[tasks.check]
+description = "Every quality gate: RuboCop, qmllint, Ruby and QML tests, manifest"
+run = "bundle exec rake check"
+
+[tasks.reload]
+description = "Restart the Omarchy shell so QML edits take effect"
+run = "omarchy-restart-shell"
