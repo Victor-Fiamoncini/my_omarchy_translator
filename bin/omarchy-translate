@@ -1,0 +1,125 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'optparse'
+require 'open3'
+require_relative '../lib/omarchy_translator'
+
+include OmarchyTranslator
+
+options = { json: false, notify: false, clipboard: false }
+
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: omarchy-translate [options] [TEXT...]\n" \
+                'Reads TEXT from arguments, --clipboard, or stdin.'
+  opts.on('-t', '--to LANG', "Target language (default: last used, else #{DEFAULT_TARGET})") do |v|
+    options[:target] = v.upcase
+  end
+  opts.on('-f', '--from LANG', "Source language or AUTO (default: last used, else #{DEFAULT_SOURCE})") do |v|
+    options[:source] = v.upcase
+  end
+  opts.on('-p', '--provider ID', "#{PROVIDERS.keys.join(', ')} (default: last used)") do |v|
+    options[:provider] = v.downcase
+  end
+  opts.on('-c', '--clipboard', 'Translate the clipboard contents') { options[:clipboard] = true }
+  opts.on('-n', '--notify', 'Show the result as a notification and copy it') { options[:notify] = true }
+  opts.on('--json', 'Print machine-readable JSON') { options[:json] = true }
+  opts.on('--languages', 'Print supported languages as JSON') { options[:command] = :languages }
+  opts.on('--status', 'Print configuration status as JSON') { options[:command] = :status }
+end
+
+def emit(options, payload)
+  if options[:json]
+    puts JSON.generate(payload)
+  elsif payload[:ok]
+    puts payload[:text]
+  else
+    warn "omarchy-translate: #{payload[:error]}"
+  end
+end
+
+def notify(headline, body, urgency: 'low')
+  system('omarchy-notification-send', '-g', '󰗊', '-u', urgency, headline, body,
+         out: File::NULL, err: File::NULL)
+end
+
+def read_clipboard
+  text, status = Open3.capture2('wl-paste', '--no-newline', err: File::NULL)
+  raise Error, 'Clipboard is empty' unless status.success? && !text.strip.empty?
+
+  text
+end
+
+def status(config)
+  provider = config.provider
+  { configured: config.configured?(provider), provider: provider,
+    providers: PROVIDERS.map do |id, klass|
+      { id: id, label: klass.label, configured: klass.configured?(config), setupHint: klass.setup_hint(config) }
+    end,
+    setupHint: PROVIDERS.fetch(provider).setup_hint(config),
+    target: config.target, source: config.source, keyFile: config.env_path }
+end
+
+begin
+  parser.parse!
+rescue OptionParser::ParseError => e
+  warn "omarchy-translate: #{e.message}"
+  warn parser.banner
+  exit 2
+end
+
+config = Config.new
+
+case options[:command]
+when :languages
+  puts JSON.generate({ targets: TARGET_LANGUAGES, sources: SOURCE_LANGUAGES })
+  exit 0
+when :status
+  puts JSON.generate(status(config))
+  exit 0
+end
+
+begin
+  text =
+    if options[:clipboard] then read_clipboard
+    elsif ARGV.any? then ARGV.join(' ')
+    elsif !$stdin.tty? then $stdin.read
+    else ''
+    end
+  text = OmarchyTranslator.normalize(text)
+  raise Error, 'Nothing to translate' if text.empty?
+
+  target = options[:target] || config.target
+  source = options.key?(:source) ? options[:source].sub(/\AAUTO\z/, '') : config.source
+  provider_id = options[:provider] || config.provider
+  raise Error, "Unsupported target language #{target}" unless TARGET_LANGUAGES.key?(target)
+  raise Error, "Unsupported source language #{source}" unless source.empty? || SOURCE_LANGUAGES.key?(source)
+  unless PROVIDERS.key?(provider_id)
+    raise Error,
+          "Unknown provider #{provider_id} (choose #{PROVIDERS.keys.join(', ')})"
+  end
+
+  provider = PROVIDERS.fetch(provider_id)
+  raise SetupError, provider.setup_hint(config) unless provider.configured?(config)
+
+  result = provider.from_config(config).translate(text, target: target, source: source)
+  config.remember(target: target, source: source, provider: provider_id)
+
+  if options[:notify]
+    system('wl-copy', result[:text])
+    notify("#{result[:detected_source] || '?'} → #{target} · #{provider.label} (copied)", result[:text])
+  end
+  emit(options, { ok: true, text: result[:text], detectedSource: result[:detected_source], target: target,
+                  provider: provider_id })
+rescue Error => e
+  notify('Translation failed', e.message, urgency: 'normal') if options[:notify]
+  payload = { ok: false, error: e.message }
+  payload[:needsSetup] = true if e.is_a?(SetupError)
+  emit(options, payload)
+  exit 1
+rescue StandardError => e
+  # Last line of defence: the popup parses stdout, so always answer in kind.
+  notify('Translation failed', 'Unexpected error, see terminal output', urgency: 'normal') if options[:notify]
+  emit(options, { ok: false, error: "Unexpected error: #{e.class}: #{e.message}" })
+  exit 1
+end
