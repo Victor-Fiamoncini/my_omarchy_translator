@@ -23,8 +23,6 @@ module OmarchyTranslator
     end
 
     def result(text, detected, source)
-      raise unexpected_response unless text.is_a?(String)
-
       { text: text, detected_source: self.class.canonical_source(detected || source) }
     end
 

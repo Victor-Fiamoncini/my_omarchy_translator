@@ -85,7 +85,8 @@ class ClaudeCodeTest < Minitest::Test
   end
 
   def test_malformed_output_raises_error
-    ['nope', '{"type":"result","subtype":"success","is_error":false}'].each do |stdout|
+    ['nope', '{"type":"result","subtype":"success","is_error":false}',
+     '{"type":"result","subtype":"success","is_error":false,"result":42}'].each do |stdout|
       FakeClaude.open(stdout: stdout) do |fake|
         error = assert_raises(Error, stdout) { claude_code(fake).translate('Hi', target: 'DE') }
 

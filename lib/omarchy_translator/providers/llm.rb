@@ -20,7 +20,7 @@ module OmarchyTranslator
     # A model that ignores the format still produced a translation, so plain text is kept. A JSON
     # reply without a translation is an error: the JSON itself must never be shown as the result.
     def parse_reply(content, source)
-      raise unexpected_response if content.to_s.strip.empty?
+      raise unexpected_response unless content.is_a?(String) && !content.strip.empty?
 
       data = json_reply(content)
       return result(content.strip, nil, source) unless data
