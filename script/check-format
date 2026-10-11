@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Check the .editorconfig rules on every project file RuboCop doesn't format
+# (QML, JS, shell, Markdown, JSON, TOML, YAML): LF line ends, a final newline,
+# no trailing whitespace (Markdown may keep it: two spaces are a line break)
+# and no tab indentation. qmlformat is not used: Omarchy's own QML doesn't
+# follow its style.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+mapfile -t files < <(git ls-files --cached --others --exclude-standard |
+  grep -Ev '\.(rb|lock|png|jpe?g|svg)$|^(Gemfile|Rakefile|bin/)' || true)
+
+problems=()
+for file in "${files[@]}"; do
+  [[ -f $file ]] || continue
+  if grep -q $'\r' "$file"; then problems+=("$file: CRLF line ends"); fi
+  if [[ -s $file && $(tail -c1 "$file" | wc -l) -eq 0 ]]; then problems+=("$file: no final newline"); fi
+  if [[ $file != *.md ]]; then
+    while IFS= read -r line; do problems+=("$file:${line%%:*}: trailing whitespace"); done \
+      < <(grep -nE '[[:space:]]+$' "$file" || true)
+  fi
+  while IFS= read -r line; do problems+=("$file:${line%%:*}: tab indentation"); done \
+    < <(grep -nP '^ *\t' "$file" || true)
+done
+
+if (( ${#problems[@]} )); then
+  printf '%s\n' "${problems[@]}"
+  exit 1
+fi
+echo "check-format: ${#files[@]} files OK"

@@ -6,7 +6,7 @@
 ruby = "4.0.2"
 
 [tasks.setup]
-description = "Install development gems"
+description = "Install development gems (RuboCop, Minitest, SimpleCov, bundler-audit)"
 run = "bundle install"
 
 [tasks.test]
@@ -33,9 +33,25 @@ run = "script/test-qml"
 description = "Validate the Omarchy plugin manifest"
 run = "omarchy plugin validate ."
 
+[tasks."test:coverage"]
+description = "Run the Ruby test suite with line and branch coverage (coverage/index.html)"
+run = "COVERAGE=1 bundle exec rake test"
+
+[tasks.format]
+description = "Check .editorconfig formatting on the files RuboCop doesn't cover"
+run = "script/check-format"
+
+[tasks.audit]
+description = "Audit the dev gems for known vulnerabilities"
+run = "bundle exec bundle-audit check --update"
+
 [tasks.check]
-description = "Every quality gate: RuboCop, qmllint, Ruby and QML tests, manifest"
-run = "bundle exec rake check"
+description = "Every quality gate (bin/ci): style, format, audit, tests + coverage, QML tests, manifest"
+run = "bin/ci"
+
+[tasks.ci]
+description = "Alias of check"
+run = "bin/ci"
 
 [tasks.reload]
 description = "Restart the Omarchy shell so QML edits take effect"

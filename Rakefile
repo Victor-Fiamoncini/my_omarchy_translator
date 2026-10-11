@@ -19,12 +19,22 @@ task :qml_test do
   sh 'script/test-qml'
 end
 
+desc 'Check .editorconfig formatting on the files RuboCop does not cover'
+task :format do
+  sh 'script/check-format'
+end
+
 desc 'Validate the Omarchy plugin manifest'
 task :validate do
   sh 'omarchy plugin validate .'
 end
 
-desc 'Run every quality gate'
-task check: %i[lint qml test qml_test validate]
+desc 'Run the CI gates as they run there: format, audit, coverage'
+task :ci do
+  sh 'bin/ci'
+end
+
+desc 'Run every quality gate (bin/ci)'
+task check: :ci
 
 task default: :check

@@ -1,0 +1,62 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Every quality gate, run in order like Rails' bin/ci: each step prints a header, then a summary
+# says which passed and how long they took. Exits non-zero if any step failed.
+#
+#   bin/ci               run every step
+#   bin/ci --fail-fast   stop at the first failure
+#   bin/ci tests         only the steps whose name contains "tests" (any case)
+
+require 'fileutils'
+require 'optparse'
+
+STEPS = [
+  ['Setup: gems', %w[bundle check]],
+  ['Style: Ruby (RuboCop)', %w[bundle exec rubocop]],
+  ['Style: formatting (.editorconfig)', %w[script/check-format]],
+  ['Style: QML (qmllint)', %w[script/lint-qml]],
+  ['Security: gem audit', %w[bundle exec bundle-audit check --update]],
+  ['Tests: Ruby + coverage', %w[bundle exec rake test], { 'COVERAGE' => '1' }],
+  ['Tests: QML', %w[script/test-qml]],
+  ['Plugin: manifest', %w[omarchy plugin validate .]]
+].freeze
+
+def color(text, code) = $stdout.tty? ? "\e[#{code}m#{text}\e[0m" : text
+
+def run_step(name, argv, env)
+  puts color("\n▶ #{name}", '1;34'), color("  #{argv.join(' ')}", '2')
+  started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  ok = system(env, *argv)
+  [name, ok, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started]
+end
+
+fail_fast = false
+OptionParser.new do |opts|
+  opts.banner = 'Usage: bin/ci [--fail-fast] [STEP FILTER]'
+  opts.on('--fail-fast', 'Stop at the first failing step') { fail_fast = true }
+end.parse!
+
+filter = ARGV.join(' ').downcase
+steps = STEPS.select { |name, *| name.downcase.include?(filter) }
+abort "bin/ci: no step matches #{filter.inspect}" if steps.empty?
+
+Dir.chdir(File.expand_path('..', __dir__))
+FileUtils.rm_rf('coverage') # a stale result set would be merged into this run's numbers
+
+results = []
+steps.each do |name, argv, env|
+  results << run_step(name, argv, env || {})
+  break if fail_fast && !results.last[1]
+end
+
+puts color("\nSummary", '1')
+results.each do |name, ok, seconds|
+  puts format('  %<mark>s %<name>-36s %<time>6.1fs', mark: ok ? color('✓', 32) : color('✗', 31), name:, time: seconds)
+end
+skipped = steps.size - results.size
+puts color("  … #{skipped} skipped after the first failure", '2') if skipped.positive?
+
+failed = results.count { |_, ok, _| !ok }
+puts failed.zero? ? color("\n✅ CI passed", '1;32') : color("\n❌ CI failed (#{failed} of #{steps.size})", '1;31')
+exit(failed.zero? ? 0 : 1)
