@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Run the QML tests (test/qml/tst_*.qml) with Qt 6 qmltestrunner, headless.
+#
+# They cover PanelLogic.js, the popup's pure logic. Panel.qml itself needs the
+# running Omarchy shell, so its layout is checked by hand (`mise run reload`).
+set -euo pipefail
+
+RUNNER=${QMLTESTRUNNER:-/usr/lib/qt6/bin/qmltestrunner}
+cd "$(dirname "$0")/.."
+
+[[ -x $RUNNER ]] || { echo "test-qml: Qt 6 qmltestrunner not found at $RUNNER" >&2; exit 1; }
+
+QT_QPA_PLATFORM=offscreen "$RUNNER" -input test/qml

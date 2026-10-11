@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Lint the plugin's QML with Qt 6 qmllint against the running Omarchy shell's
+# qs.* modules.
+#
+# Omarchy's host objects (`bar`, Loader items) are dynamically typed, so
+# qmllint cannot see their members: [missing-property] is expected (the
+# first-party widgets produce the same) and is ignored. Any other warning
+# category or error fails the gate.
+set -euo pipefail
+
+QMLLINT=${QMLLINT:-/usr/lib/qt6/bin/qmllint}
+SHELL_DIR=${OMARCHY_SHELL_DIR:-/usr/share/omarchy/shell}
+cd "$(dirname "$0")/.."
+
+[[ -x $QMLLINT ]] || { echo "lint-qml: Qt 6 qmllint not found at $QMLLINT" >&2; exit 1; }
+[[ -d $SHELL_DIR/Commons ]] || { echo "lint-qml: Omarchy shell not found at $SHELL_DIR" >&2; exit 1; }
+
+# qmllint resolves `import qs.Commons` as <import dir>/qs/Commons. Build that
+# layout outside the repo (plugin folders must not contain symlinks).
+imports=$(mktemp -d)
+trap 'rm -rf "$imports"' EXIT
+mkdir -p "$imports/qs"
+ln -s "$SHELL_DIR/Commons" "$imports/qs/Commons"
+ln -s "$SHELL_DIR/Ui" "$imports/qs/Ui"
+
+output=$("$QMLLINT" -I "$imports" -I /usr/lib/qt6/qml ./*.qml 2>&1) || true
+
+problems=$(grep -E '^(Warning|Error|Critical)' <<<"$output" | grep -v '\[missing-property\]$' || true)
+if [[ -n $problems ]]; then
+  echo "$output" | awk '/^(Warning|Error|Critical)/ { show = ($0 !~ /\[missing-property\]$/) } show'
+  exit 1
+fi
+
+ignored=$(grep -c '\[missing-property\]$' <<<"$output" || true)
+echo "qmllint: $(ls ./*.qml | wc -l) files OK (${ignored} dynamic-typing [missing-property] warnings ignored)"
