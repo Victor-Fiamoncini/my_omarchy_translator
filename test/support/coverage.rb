@@ -35,7 +35,7 @@ if CoverageSupport::ENABLED
     next if child
 
     # The floor of the current numbers: raise it as tests are added, never lower it.
-    minimum_coverage line: 96, branch: 85
+    minimum_coverage line: 100, branch: 100
   end
 
   # A child only stores its result for the merge; the test process reports and enforces the minimum.

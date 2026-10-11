@@ -24,6 +24,15 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  def test_env_file_ignores_lines_without_a_value
+    with_config do |config|
+      write(config.env_path, "JUNK\nDEEPL_AUTH_KEY=secret\n")
+
+      assert_nil config.setting('JUNK')
+      assert_equal 'secret', config.setting('DEEPL_AUTH_KEY')
+    end
+  end
+
   def test_env_file_quotes_must_match
     with_config do |config|
       write(config.env_path, "DEEPL_AUTH_KEY='single'\nOTHER=\"mismatched'\n")

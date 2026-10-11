@@ -84,8 +84,16 @@ class ClaudeCodeTest < Minitest::Test
     end
   end
 
+  def test_failure_without_json_or_stderr
+    FakeClaude.open(stdout: '', status: 3) do |fake|
+      error = assert_raises(Error) { claude_code(fake).translate('Hi', target: 'DE') }
+
+      assert_equal 'Claude Code failed', error.message
+    end
+  end
+
   def test_malformed_output_raises_error
-    ['nope', '{"type":"result","subtype":"success","is_error":false}',
+    ['nope', '[]', '{"type":"result","subtype":"success","is_error":false}',
      '{"type":"result","subtype":"success","is_error":false,"result":42}'].each do |stdout|
       FakeClaude.open(stdout: stdout) do |fake|
         error = assert_raises(Error, stdout) { claude_code(fake).translate('Hi', target: 'DE') }
@@ -101,6 +109,22 @@ class ClaudeCodeTest < Minitest::Test
     end
 
     assert_equal 'Could not run Claude Code at /nonexistent/claude', error.message
+  end
+
+  def test_cli_exiting_without_reading_its_input_still_answers
+    # Bigger than the pipe buffer, so the write is still blocked when the CLI exits (EPIPE).
+    FakeClaude.open(stdout: FakeClaude.reply(HELLO), read_stdin: false) do |fake|
+      result = claude_code(fake).translate('Hello ' * 200_000, target: 'DE')
+
+      assert_equal 'Olá mundo', result[:text]
+    end
+  end
+
+  def test_killing_a_finished_cli_is_harmless
+    pid = Process.spawn(RbConfig.ruby, '-e', '')
+    Process.wait(pid)
+
+    FakeClaude.open { |fake| assert_nil claude_code(fake).send(:kill, pid) }
   end
 
   def test_slow_cli_times_out

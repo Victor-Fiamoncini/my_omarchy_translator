@@ -8,12 +8,13 @@ require 'tmpdir'
 class FakeClaude
   attr_reader :bin, :dir
 
-  def initialize(stdout: nil, stderr: '', status: 0, sleep: 0)
+  # read_stdin: false exits without reading its input, like a CLI that dies early.
+  def initialize(stdout: nil, stderr: '', status: 0, sleep: 0, read_stdin: true)
     @dir = Dir.mktmpdir('fake-claude')
     @bin = File.join(@dir, 'claude')
     @log = File.join(@dir, 'calls.jsonl')
     stdout = JSON.generate(stdout) if stdout.is_a?(Hash)
-    File.write(@bin, script(stdout.to_s, stderr, status, sleep))
+    File.write(@bin, script(stdout.to_s, stderr, status, sleep, read_stdin))
     File.chmod(0o755, @bin)
   end
 
@@ -39,11 +40,11 @@ class FakeClaude
 
   private
 
-  def script(stdout, stderr, status, sleep)
+  def script(stdout, stderr, status, sleep, read_stdin)
     <<~RUBY
       #!#{RbConfig.ruby}
       require 'json'
-      input = $stdin.read
+      input = #{read_stdin ? '$stdin.read' : 'nil'}
       File.open(#{@log.inspect}, 'a') { |f| f.puts JSON.generate(argv: ARGV, stdin: input, cwd: Dir.pwd) }
       sleep #{sleep}
       $stderr.write #{stderr.inspect}

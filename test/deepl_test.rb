@@ -75,6 +75,19 @@ class DeepLTest < Minitest::Test
     end
   end
 
+  def test_unknown_http_error_without_a_message
+    {
+      '{}' => 'DeepL error 500', '[1]' => 'DeepL error 500', 'not json' => 'DeepL error 500',
+      '{"message":""}' => 'DeepL error 500', '{"error":"boom"}' => 'DeepL error 500: boom'
+    }.each do |body, message|
+      FakeDeepL.open(status: 500, body: body) do |server|
+        error = assert_raises(Error, body) { DeepL.new('k', base_url: server.url).translate('Hi', target: 'DE') }
+
+        assert_equal message, error.message, body
+      end
+    end
+  end
+
   def test_malformed_success_body_raises_error
     ['not json', '{}', '{"translations":[]}', '[1]'].each do |body|
       FakeDeepL.open(body: body) do |server|

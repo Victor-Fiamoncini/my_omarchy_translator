@@ -108,8 +108,10 @@ If you change any of these, update `Panel.qml` / `BarWidget.qml` and
 - **Tests hit a real socket, not mocks.** Use `FakeAPI` (or `FakeDeepL`) for anything HTTP,
   `FakeClaude` for the Claude Code CLI, and
   run the real executable through `Open3` for CLI behaviour. Tests must isolate
-  `XDG_CONFIG_HOME` / `XDG_STATE_HOME` and never use `--notify` (it would pop a
-  real desktop notification).
+  `XDG_CONFIG_HOME` / `XDG_STATE_HOME`, and pass `desktop_env` (stub `wl-paste`,
+  `wl-copy` and `omarchy-notification-send` first on `PATH`) to any run that uses
+  `--clipboard` or `--notify`, which would otherwise read the real clipboard or pop a
+  real desktop notification.
 
 ## Quality gates — run before finishing any change
 

@@ -82,6 +82,10 @@ class ClaudeTest < Minitest::Test
     assert_equal({ text: 'Olá', detected_source: nil }, translate_reply("Olá\n"))
   end
 
+  def test_json_reply_that_is_not_an_object_is_kept_as_text
+    assert_equal({ text: '["Olá"]', detected_source: nil }, translate_reply('["Olá"]'))
+  end
+
   def test_json_reply_inside_prose_is_parsed
     assert_equal({ text: 'Olá', detected_source: 'EN' },
                  translate_reply("Here it is:\n```json\n{\"detected_source\":\"en\",\"text\":\"Olá\"}\n```"))
