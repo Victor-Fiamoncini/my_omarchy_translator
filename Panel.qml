@@ -6,7 +6,6 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
-import "PanelLogic.js" as Logic
 
 Panel {
   id: root
@@ -31,7 +30,7 @@ Panel {
   property var sourceLanguageOptions: []
   property var sourceNames: ({})
   readonly property var sourceOptions: [{
-    value: "", label: Logic.autoSourceLabel(root.detectedSource, root.sourceNames, root.resultText !== "")
+    value: "", label: logic.autoSourceLabel(root.detectedSource, root.sourceNames, root.resultText !== "")
   }].concat(root.sourceLanguageOptions)
 
   property string resultText: ""
@@ -77,6 +76,10 @@ Panel {
     return false
   }
 
+  PanelLogic {
+    id: logic
+  }
+
   function translate() {
     const text = inputField.text.trim()
     if (text === "" || root.cli === "") return
@@ -108,7 +111,7 @@ Panel {
       root.resultText = response.text
       root.resultInput = root.requestInput
       root.detectedSource = response.detectedSource || ""
-      root.resultProvider = Logic.providerLabel(root.providerOptions, response.provider)
+      root.resultProvider = logic.providerLabel(root.providerOptions, response.provider)
     } else {
       root.errorText = response.error
       if (response.needsSetup === true) root.configured = false
@@ -118,7 +121,7 @@ Panel {
 
   // A provider without settings shows its setup hint instead of translating.
   function selectProvider(id) {
-    const p = Logic.findProvider(root.providers, id)
+    const p = logic.findProvider(root.providers, id)
     root.provider = id
     root.configured = p?.configured !== false
     root.setupHint = p?.setupHint ?? ""
@@ -128,11 +131,11 @@ Panel {
 
   // Swapping needs a concrete source; with auto-detect, use what the provider detected.
   function swapLanguages() {
-    const swapped = Logic.swappedLanguages(root.sourceLang, root.detectedSource, root.targetLang, root.targetOptions)
+    const swapped = logic.swappedLanguages(root.sourceLang, root.detectedSource, root.targetLang, root.targetOptions)
     if (!swapped) return
     root.sourceLang = swapped.source
     root.targetLang = swapped.target
-    const input = Logic.swappedInput(inputField.text, root.resultText, root.resultInput)
+    const input = logic.swappedInput(inputField.text, root.resultText, root.resultInput)
     if (input !== inputField.text) inputField.text = input
     root.resultText = ""
     root.detectedSource = ""
@@ -152,14 +155,14 @@ Panel {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        const s = Logic.parseJson(text)
+        const s = logic.parseJson(text)
         if (!s) return
         root.configured = s.configured === true
         root.keyFile = s.keyFile || root.keyFile
         root.setupHint = s.setupHint || ""
         root.provider = s.provider || ""
         root.providers = s.providers || []
-        root.providerOptions = Logic.toProviderOptions(root.providers)
+        root.providerOptions = logic.toProviderOptions(root.providers)
         root.targetLang = s.target || root.targetLang
         root.sourceLang = s.source ?? root.sourceLang
       }
@@ -172,11 +175,11 @@ Panel {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        const l = Logic.parseJson(text)
+        const l = logic.parseJson(text)
         if (!l) return
-        root.targetOptions = Logic.toOptions(l.targets)
+        root.targetOptions = logic.toOptions(l.targets)
         root.sourceNames = l.sources || {}
-        root.sourceLanguageOptions = Logic.toOptions(l.sources)
+        root.sourceLanguageOptions = logic.toOptions(l.sources)
       }
     }
   }
@@ -186,7 +189,7 @@ Panel {
     stdout: StdioCollector {
       waitForEnd: true
       // Stopping a timed-out request still ends its stream; the watchdog already answered it.
-      onStreamFinished: if (root.busy) root.finishTranslate(Logic.parseJson(text))
+      onStreamFinished: if (root.busy) root.finishTranslate(logic.parseJson(text))
     }
   }
 
@@ -436,7 +439,7 @@ Panel {
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.caption
           text: root.copied ? "Copied to clipboard"
-              : Logic.footerHints(root.resultProvider, root.resultText !== "", root.providerOptions.length)
+              : logic.footerHints(root.resultProvider, root.resultText !== "", root.providerOptions.length)
         }
       }
     }
