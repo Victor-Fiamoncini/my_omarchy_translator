@@ -7,8 +7,9 @@ is explained in depth in [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
 ## What this is
 
 An **Omarchy 4 bar widget** that translates text with a provider the user picks
-(**DeepL**, or Claude through the API or the local Claude Code CLI). Omarchy 4 no longer uses Waybar: the desktop shell is a
-single long-running [Quickshell](https://quickshell.org/) (Qt/QML) process, and
+(**DeepL**, Claude through the API or the local Claude Code CLI, or Google
+**Gemini**). Omarchy 4 no longer uses Waybar: the desktop shell is a single
+long-running [Quickshell](https://quickshell.org/) (Qt/QML) process, and
 every bar item is a plugin. This repository root *is* the plugin —
 `manifest.json` must stay at the top level.
 
@@ -16,7 +17,7 @@ Two halves, split on purpose:
 
 | Layer | Files | Language | Role |
 |---|---|---|---|
-| UI | `BarWidget.qml`, `Panel.qml`, `ProviderLogo.qml`, `PanelLogic.js` | QML / JS | Bar icon + popup. Runs inside `omarchy-shell`. |
+| UI | `BarWidget.qml`, `Panel.qml`, `ProviderDropdown.qml`, `ProviderLogo.qml`, `PanelLogic.qml` | QML | Bar icon + popup. Runs inside `omarchy-shell`. |
 | Logic | `lib/`, `bin/omarchy-translate` | Ruby 4.0 | Provider clients + CLI. Run by the UI as a subprocess. |
 
 The QML never talks to the network. It runs `bin/omarchy-translate --json …` via
@@ -27,9 +28,10 @@ Quickshell `Process` and parses one JSON object from stdout.
 ```
 manifest.json              Omarchy plugin manifest (id: local.translator)
 BarWidget.qml              Bar pill: left=popup, right=clipboard, middle=OCR region
-Panel.qml                  Popup: provider buttons, language dropdowns, multi-line input, result card
+Panel.qml                  Popup: provider dropdown, language dropdowns, multi-line input, result card
+ProviderDropdown.qml       Provider picker: qs.Ui Dropdown's look and keys, plus logos and "not set up" rows
 ProviderLogo.qml           Provider logo (Simple Icons SVG path via QtQuick.Shapes, theme-tinted)
-PanelLogic.js              Popup's pure logic (options, labels, footer, swap), imported as `Logic`
+PanelLogic.qml             Popup's pure logic (options, labels, footer, swap), declared in Panel as `logic`
 bin/omarchy-translate      CLI entry point (OptionParser)
 bin/ci                     Every quality gate in order, with a summary (like Rails' bin/ci)
 lib/omarchy_translator.rb  Language tables, normalize, PROVIDERS registry (id => class)
@@ -37,12 +39,14 @@ lib/omarchy_translator/config.rb       Config: env-file settings, active provide
 lib/omarchy_translator/providers/      Provider base (HTTP + errors), LLMTranslation, one file per provider
 script/lint-qml            qmllint gate against the running shell's qs.* modules
 script/test-qml            qmltestrunner gate (headless) for test/qml/tst_*.qml
+script/qs-imports          Sourced by both: lays out the shell's qs.* modules (+ test stubs) in a temp dir
 script/check-format        .editorconfig gate for the files RuboCop doesn't cover
 test/                      Minitest: one *_test per provider, config_test, cli_test, normalize_test
 test/support/fake_api.rb   Stdlib TCPServer standing in for a provider API (FakeAPI, FakeDeepL)
 test/support/fake_claude.rb  Executable script standing in for the `claude` CLI (FakeClaude)
 test/support/coverage.rb   SimpleCov setup (COVERAGE=1), also inside the CLI child processes
-test/qml/                  QML TestCase files for PanelLogic.js
+test/qml/                  QML TestCase files: PanelLogic unit tests, Panel and BarWidget component tests
+test/qml/stubs/            Quickshell, Quickshell.Io (Process → FakeProcesses) and qs.Ui KeyboardPanel stand-ins
 docs/HOW_IT_WORKS.md       QML/Quickshell primer + architecture walkthrough
 ```
 
@@ -93,13 +97,22 @@ If you change any of these, update `Panel.qml` / `BarWidget.qml` and
   colors or font sizes. Build subprocess commands as **argv arrays**, never
   interpolated shell strings. The reference implementation is the weather widget
   at `/usr/share/omarchy/shell/plugins/panels/weather/`.
-- **Popup logic goes in `PanelLogic.js`**, not in `Panel.qml` functions: anything
+- **Popup logic goes in `PanelLogic.qml`**, not in `Panel.qml` functions: anything
   that computes a value from plain inputs (labels, options, hints, swap rules)
   is a pure function there, with a test in `test/qml/tst_panel_logic.qml`.
   `Panel.qml` keeps the state, bindings, `Process` calls and side effects.
-  `Panel.qml` itself can't run outside the shell, so layout (wrapping, sizes)
-  is checked by eye after `mise run reload`.
-- **JS style** (in `PanelLogic.js` and QML handlers): `const`/`let`, arrow
+  No `.js` files: the UI is QML only.
+- **Behaviour of the popup and the bar pill** (what a key or click does, what
+  argv reaches the CLI, how each reply is shown) is tested in
+  `test/qml/tst_panel.qml` / `tst_bar_widget.qml`. They load the real QML with
+  the real `qs.Commons` / `qs.Ui` controls; `test/qml/stubs` replaces only what
+  needs the running shell: Quickshell's plugin (built into the `quickshell`
+  binary, so `qmltestrunner` can't load it), `Process` (answered by
+  `FakeProcesses.respond`) and the layer-shell `KeyboardPanel`. Find items by
+  `objectName`; a hidden `TestCase` gets no mouse events, so keep `visible: true`.
+  If the panel starts using another Quickshell type, add a stub for it.
+  Layout (wrapping, sizes, theme) is still checked by eye after `mise run reload`.
+- **JS style** (in `PanelLogic.qml` and QML handlers): `const`/`let`, arrow
   functions, template literals, `?.` and `??`. Qt's JS engine lacks some newer
   built-ins (e.g. `String.prototype.replaceAll`; use `replace(/…/g, …)`), so
   rely on `mise run test:qml` to confirm.
@@ -130,7 +143,9 @@ needs tests that keep it there; raise the floor when coverage goes up, never
 lower it. CLI tests must pass `CoverageSupport.env` to the child process, as
 `run_cli` does, or the CLI's lines don't count.
 
-`script/lint-qml` ignores `[missing-property]` on purpose: Omarchy's host
+`script/lint-qml` also lints `test/qml` (tests and stubs) with `--bare`, so the
+stubs aren't shadowed by the real Quickshell; there every warning fails. For the
+plugin's own QML it ignores `[missing-property]` on purpose: Omarchy's host
 objects (`bar`, `Loader.item`) are dynamically typed, so qmllint can't see their
 members (the first-party widgets produce the same warning). Any other category
 (`unqualified`, `import`, `incompatible-type`, …) fails the gate. `qmlformat` is

@@ -1,0 +1,21 @@
+# shellcheck shell=bash
+# Sourced by script/lint-qml and script/test-qml.
+#
+# qs_imports DIR [STUBS]: lays out the Omarchy shell's modules the way
+# `import qs.Commons` resolves them, as DIR/qs/Commons and DIR/qs/Ui, outside
+# the repo (plugin folders must not contain symlinks). A file in STUBS/qs/Ui
+# replaces the shell's own of the same name.
+qs_imports() {
+  local dir=$1 stubs=${2:-} file name
+  [[ -d $SHELL_DIR/Commons ]] || { echo "Omarchy shell not found at $SHELL_DIR" >&2; return 1; }
+  mkdir -p "$dir/qs/Ui"
+  ln -s "$SHELL_DIR/Commons" "$dir/qs/Commons"
+  for file in "$SHELL_DIR"/Ui/*; do
+    name=${file##*/}
+    if [[ -n $stubs && -e $stubs/qs/Ui/$name ]]; then
+      ln -s "$(realpath "$stubs/qs/Ui/$name")" "$dir/qs/Ui/$name"
+    else
+      ln -s "$file" "$dir/qs/Ui/$name"
+    fi
+  done
+}

@@ -53,7 +53,7 @@ module OmarchyTranslator
 
     def command(target, source)
       argv = [@bin, '-p', '--output-format', 'json',
-              '--json-schema', JSON.generate(Claude::REPLY_SCHEMA),
+              '--json-schema', JSON.generate(REPLY_SCHEMA),
               '--system-prompt', system_prompt(target, source),
               '--tools', '', '--no-session-persistence', '--effort', 'low', '--strict-mcp-config']
       argv.push('--model', @model) if @model

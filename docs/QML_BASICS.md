@@ -389,8 +389,9 @@ MouseArea {
 }
 ```
 
-- **`MouseArea`** is an invisible rectangle that catches the mouse. BarWidget.qml
-  uses `acceptedButtons` to tell left, right and middle clicks apart.
+- **`MouseArea`** is an invisible rectangle that catches the mouse. The bar pill
+  uses qs.Ui's `BarIconButton`, whose `MouseArea` accepts left, right and middle
+  clicks and passes the button to `onPressed`. BarWidget.qml then tells them apart.
 - **`TapHandler`** / **`HoverHandler`** are the newer pointer handlers. They're
   lighter and compose better, and you can use them for new code.
 - **Keyboard** events only reach the item with **`activeFocus`**. Call
@@ -637,8 +638,12 @@ it. This project's lint gate fails on `[unqualified]` for that reason.
 | A control with a custom `background` | `Panel.qml`: the `ScrollView` + `TextArea` input |
 | Running a subprocess | `Panel.qml`: `Process` + `StdioCollector` |
 | `Timer` | `Panel.qml`: `watchdog`, `copiedTimer` |
-| `MouseArea` with several buttons | `BarWidget.qml` |
+| Telling mouse buttons apart | `BarWidget.qml`: `BarIconButton`'s `onPressed` |
 | `Loader` | `BarWidget.qml` loading `Panel.qml` |
+| `ListView` + `Popup`, delegates with `required property` | `ProviderDropdown.qml`: the provider list |
+| A component of your own, used like a built-in type | `ProviderDropdown.qml` and `ProviderLogo.qml`, used in `Panel.qml` |
+| A non-visual object holding functions | `PanelLogic.qml` (a `QtObject`), declared in `Panel.qml` as `logic` |
+| Testing QML with `TestCase` | `test/qml/`: `tst_panel_logic.qml`, `tst_panel.qml`, `tst_bar_widget.qml` |
 | Reusable themed components | `/usr/share/omarchy/shell/Ui/*.qml` |
 
 ---

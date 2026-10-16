@@ -13,6 +13,7 @@ require_relative 'omarchy_translator/providers/llm'
 require_relative 'omarchy_translator/providers/deepl'
 require_relative 'omarchy_translator/providers/claude'
 require_relative 'omarchy_translator/providers/claude_code'
+require_relative 'omarchy_translator/providers/gemini'
 require_relative 'omarchy_translator/config'
 
 # Translation for the Omarchy bar widget.
@@ -75,7 +76,7 @@ module OmarchyTranslator
     SocketError, IOError, SystemCallError, Timeout::Error, OpenSSL::SSL::SSLError
   ].freeze
 
-  PROVIDERS = [DeepL, Claude, ClaudeCode].to_h { |provider| [provider::ID, provider] }.freeze
+  PROVIDERS = [DeepL, Claude, ClaudeCode, Gemini].to_h { |provider| [provider::ID, provider] }.freeze
 
   DEFAULT_PROVIDER = 'claude-code'
 end

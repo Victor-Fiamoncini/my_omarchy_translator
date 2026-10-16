@@ -6,7 +6,6 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
-import "PanelLogic.js" as Logic
 
 Panel {
   id: root
@@ -31,7 +30,7 @@ Panel {
   property var sourceLanguageOptions: []
   property var sourceNames: ({})
   readonly property var sourceOptions: [{
-    value: "", label: Logic.autoSourceLabel(root.detectedSource, root.sourceNames, root.resultText !== "")
+    value: "", label: logic.autoSourceLabel(root.detectedSource, root.sourceNames, root.resultText !== "")
   }].concat(root.sourceLanguageOptions)
 
   property string resultText: ""
@@ -46,7 +45,8 @@ Panel {
   // A language change while a request is in flight re-runs it afterwards.
   property bool pendingTranslate: false
 
-  readonly property bool dropdownOpen: sourceDropdown.popupOpen || targetDropdown.popupOpen
+  readonly property bool dropdownOpen: providerDropdown.popupOpen || sourceDropdown.popupOpen
+                                       || targetDropdown.popupOpen
 
   function open() { openFromHotkey() }
 
@@ -61,6 +61,7 @@ Panel {
   }
 
   function close() {
+    providerDropdown.close()
     sourceDropdown.close()
     targetDropdown.close()
     root.controller.hide()
@@ -75,6 +76,10 @@ Panel {
     if (root.bar && typeof root.bar.switchPanelFrom === "function")
       return root.bar.switchPanelFrom(root.barIdentity, direction)
     return false
+  }
+
+  PanelLogic {
+    id: logic
   }
 
   function translate() {
@@ -108,7 +113,7 @@ Panel {
       root.resultText = response.text
       root.resultInput = root.requestInput
       root.detectedSource = response.detectedSource || ""
-      root.resultProvider = Logic.providerLabel(root.providerOptions, response.provider)
+      root.resultProvider = logic.providerLabel(root.providerOptions, response.provider)
     } else {
       root.errorText = response.error
       if (response.needsSetup === true) root.configured = false
@@ -118,7 +123,7 @@ Panel {
 
   // A provider without settings shows its setup hint instead of translating.
   function selectProvider(id) {
-    const p = Logic.findProvider(root.providers, id)
+    const p = logic.findProvider(root.providers, id)
     root.provider = id
     root.configured = p?.configured !== false
     root.setupHint = p?.setupHint ?? ""
@@ -128,11 +133,11 @@ Panel {
 
   // Swapping needs a concrete source; with auto-detect, use what the provider detected.
   function swapLanguages() {
-    const swapped = Logic.swappedLanguages(root.sourceLang, root.detectedSource, root.targetLang, root.targetOptions)
+    const swapped = logic.swappedLanguages(root.sourceLang, root.detectedSource, root.targetLang, root.targetOptions)
     if (!swapped) return
     root.sourceLang = swapped.source
     root.targetLang = swapped.target
-    const input = Logic.swappedInput(inputField.text, root.resultText, root.resultInput)
+    const input = logic.swappedInput(inputField.text, root.resultText, root.resultInput)
     if (input !== inputField.text) inputField.text = input
     root.resultText = ""
     root.detectedSource = ""
@@ -152,14 +157,14 @@ Panel {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        const s = Logic.parseJson(text)
+        const s = logic.parseJson(text)
         if (!s) return
         root.configured = s.configured === true
         root.keyFile = s.keyFile || root.keyFile
         root.setupHint = s.setupHint || ""
         root.provider = s.provider || ""
         root.providers = s.providers || []
-        root.providerOptions = Logic.toProviderOptions(root.providers)
+        root.providerOptions = logic.toProviderOptions(root.providers)
         root.targetLang = s.target || root.targetLang
         root.sourceLang = s.source ?? root.sourceLang
       }
@@ -172,11 +177,11 @@ Panel {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        const l = Logic.parseJson(text)
+        const l = logic.parseJson(text)
         if (!l) return
-        root.targetOptions = Logic.toOptions(l.targets)
+        root.targetOptions = logic.toOptions(l.targets)
         root.sourceNames = l.sources || {}
-        root.sourceLanguageOptions = Logic.toOptions(l.sources)
+        root.sourceLanguageOptions = logic.toOptions(l.sources)
       }
     }
   }
@@ -186,7 +191,7 @@ Panel {
     stdout: StdioCollector {
       waitForEnd: true
       // Stopping a timed-out request still ends its stream; the watchdog already answered it.
-      onStreamFinished: if (root.busy) root.finishTranslate(Logic.parseJson(text))
+      onStreamFinished: if (root.busy) root.finishTranslate(logic.parseJson(text))
     }
   }
 
@@ -234,60 +239,18 @@ Panel {
         width: parent.width
         spacing: Style.space(12)
 
-        // Provider picker. qs.Ui's ButtonGroup only takes font glyphs as icons,
-        // so each chip is its Button (themed fill, border, tooltip) around a
-        // logo + name; providers without settings are dimmed.
-        Row {
-          id: providerRow
+        // Provider picker: a dropdown, so the list can grow. Providers
+        // without settings are dimmed; picking one shows its setup hint.
+        ProviderDropdown {
+          id: providerDropdown
+          objectName: "providerDropdown"
           width: parent.width
-          spacing: Style.space(8)
           visible: root.providerOptions.length > 1
-
-          Repeater {
-            model: root.providerOptions
-
-            delegate: Button {
-              id: chip
-              required property var modelData
-              readonly property color contentColor: chip.selected
-                  ? Style.selectedStateColor(root.barForeground, Color.accent) : root.barForeground
-              width: (providerRow.width - providerRow.spacing * (root.providerOptions.length - 1))
-                     / root.providerOptions.length
-              implicitHeight: Style.spacing.controlHeight
-              bordered: true
-              selected: chip.modelData.value === root.provider
-              tooltipText: chip.modelData.tooltip
-              foreground: root.barForeground
-              fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-              onClicked: root.selectProvider(chip.modelData.value)
-
-              Row {
-                anchors.centerIn: parent
-                spacing: Style.spacing.controlGap
-                opacity: chip.modelData.configured ? 1 : 0.5
-
-                ProviderLogo {
-                  id: logo
-                  anchors.verticalCenter: parent.verticalCenter
-                  provider: chip.modelData.value
-                  size: Style.font.body
-                  color: chip.contentColor
-                }
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: Math.min(implicitWidth, chip.width - logo.width - Style.spacing.controlPaddingX * 3)
-                  textFormat: Text.PlainText
-                  elide: Text.ElideRight
-                  text: chip.modelData.label
-                  color: chip.contentColor
-                  font.family: chip.fontFamily
-                  font.pixelSize: Style.font.body
-                  font.bold: chip.selected
-                }
-              }
-            }
-          }
+          label: "Translate with"
+          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+          options: root.providerOptions
+          Binding on value { value: root.provider }
+          onChanged: v => root.selectProvider(v)
         }
 
         Row {
@@ -308,6 +271,7 @@ Panel {
 
           PanelActionButton {
             id: swapButton
+            objectName: "swapButton"
             anchors.verticalCenter: sourceDropdown.verticalCenter
             iconText: "󰓡"
             tooltipText: "Swap languages"
@@ -350,6 +314,7 @@ Panel {
 
           TextArea {
             id: inputField
+            objectName: "inputField"
             placeholderText: "Type or paste text · Enter to translate"
             wrapMode: TextArea.Wrap
             textFormat: TextEdit.PlainText
@@ -395,6 +360,7 @@ Panel {
 
           TextEdit {
             id: resultEdit
+            objectName: "resultText"
             anchors.fill: parent
             anchors.margins: Style.space(12)
             anchors.rightMargin: copyButton.width + Style.space(16)
@@ -414,6 +380,7 @@ Panel {
 
           PanelActionButton {
             id: copyButton
+            objectName: "copyButton"
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: Style.space(8)
@@ -427,6 +394,7 @@ Panel {
         }
 
         Text {
+          objectName: "footer"
           width: parent.width
           textFormat: Text.PlainText
           horizontalAlignment: Text.AlignRight
@@ -436,7 +404,7 @@ Panel {
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.caption
           text: root.copied ? "Copied to clipboard"
-              : Logic.footerHints(root.resultProvider, root.resultText !== "", root.providerOptions.length)
+              : logic.footerHints(root.resultProvider, root.resultText !== "", root.providerOptions.length)
         }
       }
     }

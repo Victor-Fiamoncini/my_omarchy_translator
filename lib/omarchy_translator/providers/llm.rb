@@ -5,6 +5,13 @@ module OmarchyTranslator
   module LLMTranslation
     TIMEOUT = 30
 
+    REPLY_SCHEMA = {
+      type: 'object',
+      properties: { detected_source: { type: 'string' }, text: { type: 'string' } },
+      required: %w[detected_source text],
+      additionalProperties: false
+    }.freeze
+
     def system_prompt(target, source)
       from = source.to_s.empty? ? 'Detect the source language.' : "The source language is #{SOURCE_LANGUAGES[source]}."
       <<~PROMPT.strip
