@@ -16,13 +16,6 @@ module OmarchyTranslator
     FALLBACK_MODELS = %w[claude-opus-5-5 claude-opus-5 claude-sonnet-5-5 claude-fable-5-1].freeze
     FALLBACK_BETA = 'server-side-fallback-2026-07-01'
 
-    REPLY_SCHEMA = {
-      type: 'object',
-      properties: { detected_source: { type: 'string' }, text: { type: 'string' } },
-      required: %w[detected_source text],
-      additionalProperties: false
-    }.freeze
-
     def self.configured?(config) = !config.setting('ANTHROPIC_API_KEY').nil?
 
     def self.setup_hint(config) = "No Anthropic API key. Add ANTHROPIC_API_KEY to #{config.env_path}"
