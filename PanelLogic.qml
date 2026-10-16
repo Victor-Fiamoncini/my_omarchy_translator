@@ -24,14 +24,12 @@ QtObject {
       .sort((a, b) => a.label.localeCompare(b.label))
   }
 
-  // Every provider is offered, so the others can be discovered. The ones
-  // without settings are dimmed in the picker, and picking one shows its setup hint.
+  // Every provider is offered, so the others can be discovered: the set-up ones
+  // first, then the rest (dimmed in the picker; picking one shows its setup hint),
+  // each group in --status order.
   function toProviderOptions(providers) {
-    return (providers ?? []).map(p => {
-      const configured = p.configured === true
-      const tooltip = configured ? `Translate with ${p.label}` : `${p.label} isn't set up yet`
-      return { value: p.id, label: p.label, configured, tooltip }
-    })
+    const options = (providers ?? []).map(p => ({ value: p.id, label: p.label, configured: p.configured === true }))
+    return [...options.filter(o => o.configured), ...options.filter(o => !o.configured)]
   }
 
   // The --status entry for a provider id, or null.

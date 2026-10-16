@@ -4,7 +4,7 @@ import Quickshell
 import Quickshell.Io
 
 // The real popup (Panel.qml) driven like a user: keys into the input, clicks
-// on the provider chips and buttons. Quickshell is stubbed (test/qml/stubs):
+// on the provider dropdown and buttons. Quickshell is stubbed (test/qml/stubs):
 // FakeProcesses answers the CLI calls, so these tests check what the popup
 // sends and how it shows each kind of reply. Run by script/test-qml.
 TestCase {
@@ -58,6 +58,16 @@ TestCase {
     return item
   }
 
+  // Opens the provider dropdown and clicks a row. The rows live in a Popup,
+  // which is reparented to the window's overlay, so they're found from there.
+  function pickProvider(id) {
+    mouseClick(child("providerTrigger"))
+    const row = findChild(testCase.Window.window.contentItem, `provider-${id}`)
+    verify(row, `no provider row ${id}`)
+    tryVerify(() => row.visible && row.height > 0)
+    mouseClick(row)
+  }
+
   function type(text) {
     for (const ch of text) keyClick(ch)
   }
@@ -72,13 +82,15 @@ TestCase {
     panel.openFromHotkey()
     tryVerify(() => panel.targetOptions.length === 3 && panel.providers.length === 2)
     tryVerify(() => child("inputField").activeFocus)
+    // Columns lay out on the next polish; clicks before that land in the wrong place.
+    tryVerify(() => child("providerTrigger").y > 0)
   }
 
   function test_opening_asks_for_status_and_languages() {
     compare(FakeProcesses.commands.filter(argv => argv[0] === cli),
             [[cli, "--status"], [cli, "--languages"]])
     compare(panel.provider, "deepl")
-    verify(child("provider-gemini"))
+    compare(child("providerTriggerLabel").text, "DeepL")
   }
 
   function test_enter_translates_what_was_typed() {
@@ -128,20 +140,43 @@ TestCase {
 
   function test_unconfigured_provider_shows_its_setup_hint_without_translating() {
     type("Hello")
-    mouseClick(child("provider-gemini"))
+    pickProvider("gemini")
 
     compare(panel.provider, "gemini")
+    compare(child("providerTriggerLabel").text, "Gemini")
     compare(child("resultText").text, "No Gemini API key. Add GEMINI_API_KEY")
     compare(translateCommands(), [])
   }
 
   function test_configured_provider_translates_right_away() {
     type("Hello")
-    mouseClick(child("provider-gemini"))
-    mouseClick(child("provider-deepl"))
+    pickProvider("gemini")
+    pickProvider("deepl")
 
     tryCompare(child("resultText"), "text", "Olá")
     compare(translateCommands().length, 1)
+    compare(translateCommands()[0].slice(6, 8), ["--provider", "deepl"])
+  }
+
+  function test_provider_dropdown_works_from_the_keyboard() {
+    child("providerTrigger").forceActiveFocus()
+    keyClick(Qt.Key_Return)
+    tryVerify(() => child("providerDropdown").popupOpen)
+    keyClick(Qt.Key_Down)
+    keyClick(Qt.Key_Return)
+
+    compare(panel.provider, "gemini")
+    verify(!child("providerDropdown").popupOpen)
+  }
+
+  function test_escape_in_the_provider_list_closes_only_the_list() {
+    mouseClick(child("providerTrigger"))
+    tryVerify(() => child("providerDropdown").popupOpen)
+
+    keyClick(Qt.Key_Escape)
+
+    tryVerify(() => !child("providerDropdown").popupOpen)
+    verify(panel.opened)
   }
 
   function test_swap_moves_the_translation_into_the_input() {
@@ -167,6 +202,15 @@ TestCase {
 
     compare(Quickshell.detached, [["wl-copy", "--", "Olá"]])
     compare(child("footer").text, "Copied to clipboard")
+  }
+
+  function test_closing_the_popup_closes_an_open_provider_list() {
+    mouseClick(child("providerTrigger"))
+    tryVerify(() => child("providerDropdown").popupOpen)
+
+    panel.close()
+
+    tryVerify(() => !child("providerDropdown").popupOpen)
   }
 
   function test_footer_names_the_provider_used() {

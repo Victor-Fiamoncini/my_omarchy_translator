@@ -45,7 +45,8 @@ Panel {
   // A language change while a request is in flight re-runs it afterwards.
   property bool pendingTranslate: false
 
-  readonly property bool dropdownOpen: sourceDropdown.popupOpen || targetDropdown.popupOpen
+  readonly property bool dropdownOpen: providerDropdown.popupOpen || sourceDropdown.popupOpen
+                                       || targetDropdown.popupOpen
 
   function open() { openFromHotkey() }
 
@@ -60,6 +61,7 @@ Panel {
   }
 
   function close() {
+    providerDropdown.close()
     sourceDropdown.close()
     targetDropdown.close()
     root.controller.hide()
@@ -237,61 +239,18 @@ Panel {
         width: parent.width
         spacing: Style.space(12)
 
-        // Provider picker. qs.Ui's ButtonGroup only takes font glyphs as icons,
-        // so each chip is its Button (themed fill, border, tooltip) around a
-        // logo + name; providers without settings are dimmed.
-        Row {
-          id: providerRow
+        // Provider picker: a dropdown, so the list can grow. Providers
+        // without settings are dimmed; picking one shows its setup hint.
+        ProviderDropdown {
+          id: providerDropdown
+          objectName: "providerDropdown"
           width: parent.width
-          spacing: Style.space(8)
           visible: root.providerOptions.length > 1
-
-          Repeater {
-            model: root.providerOptions
-
-            delegate: Button {
-              id: chip
-              objectName: `provider-${chip.modelData.value}`
-              required property var modelData
-              readonly property color contentColor: chip.selected
-                  ? Style.selectedStateColor(root.barForeground, Color.accent) : root.barForeground
-              width: (providerRow.width - providerRow.spacing * (root.providerOptions.length - 1))
-                     / root.providerOptions.length
-              implicitHeight: Style.spacing.controlHeight
-              bordered: true
-              selected: chip.modelData.value === root.provider
-              tooltipText: chip.modelData.tooltip
-              foreground: root.barForeground
-              fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-              onClicked: root.selectProvider(chip.modelData.value)
-
-              Row {
-                anchors.centerIn: parent
-                spacing: Style.spacing.controlGap
-                opacity: chip.modelData.configured ? 1 : 0.5
-
-                ProviderLogo {
-                  id: logo
-                  anchors.verticalCenter: parent.verticalCenter
-                  provider: chip.modelData.value
-                  size: Style.font.body
-                  color: chip.contentColor
-                }
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: Math.min(implicitWidth, chip.width - logo.width - Style.spacing.controlPaddingX * 3)
-                  textFormat: Text.PlainText
-                  elide: Text.ElideRight
-                  text: chip.modelData.label
-                  color: chip.contentColor
-                  font.family: chip.fontFamily
-                  font.pixelSize: Style.font.body
-                  font.bold: chip.selected
-                }
-              }
-            }
-          }
+          label: "Translate with"
+          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+          options: root.providerOptions
+          Binding on value { value: root.provider }
+          onChanged: v => root.selectProvider(v)
         }
 
         Row {

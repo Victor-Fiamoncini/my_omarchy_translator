@@ -39,10 +39,15 @@ TestCase {
 
   function test_provider_options_list_every_provider_and_flag_unset_ones() {
     compare(logic.toProviderOptions(providers), [
-      { value: "deepl", label: "DeepL", configured: false, tooltip: "DeepL isn't set up yet" },
-      { value: "claude", label: "Claude", configured: true, tooltip: "Translate with Claude" }
+      { value: "claude", label: "Claude", configured: true },
+      { value: "deepl", label: "DeepL", configured: false }
     ])
     compare(logic.toProviderOptions(undefined), [])
+  }
+
+  function test_provider_options_put_set_up_ones_first_in_status_order() {
+    const status = ["a", "b", "c", "d"].map((id, i) => ({ id, label: id, configured: i % 2 === 1 }))
+    compare(logic.toProviderOptions(status).map(o => o.value), ["b", "d", "a", "c"])
   }
 
   function test_find_provider() {
