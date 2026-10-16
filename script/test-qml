@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
 # Run the QML tests (test/qml/tst_*.qml) with Qt 6 qmltestrunner, headless.
 #
-# They cover PanelLogic.js, the popup's pure logic. Panel.qml itself needs the
-# running Omarchy shell, so its layout is checked by hand (`mise run reload`).
+# tst_panel_logic.qml unit-tests PanelLogic.qml. tst_panel.qml drives the real
+# Panel.qml with the real qs.Commons / qs.Ui controls, typing and clicking like
+# a user. Quickshell's QML plugin lives inside the quickshell binary, so it
+# can't load here: test/qml/stubs stands in for Quickshell, Quickshell.Io
+# (Process answers from FakeProcesses) and qs.Ui's KeyboardPanel (a Wayland
+# layer-shell window). The CLI behind Process is covered by the Ruby tests.
 set -euo pipefail
 
 RUNNER=${QMLTESTRUNNER:-/usr/lib/qt6/bin/qmltestrunner}
+SHELL_DIR=${OMARCHY_SHELL_DIR:-/usr/share/omarchy/shell}
 cd "$(dirname "$0")/.."
+source script/qs-imports
 
 [[ -x $RUNNER ]] || { echo "test-qml: Qt 6 qmltestrunner not found at $RUNNER" >&2; exit 1; }
 
-QT_QPA_PLATFORM=offscreen "$RUNNER" -input test/qml
+imports=$(mktemp -d)
+trap 'rm -rf "$imports"' EXIT
+qs_imports "$imports" test/qml/stubs || exit 1
+
+QT_QPA_PLATFORM=offscreen "$RUNNER" -import test/qml/stubs -import "$imports" -input test/qml

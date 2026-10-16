@@ -10,8 +10,9 @@ class CliTest < Minitest::Test
 
   # Keep the developer's own keys and real `claude` out of the tests.
   PROVIDER_VARS = %w[TRANSLATOR_PROVIDER DEEPL_AUTH_KEY DEEPL_API_URL ANTHROPIC_API_KEY ANTHROPIC_MODEL
-                     ANTHROPIC_API_URL CLAUDE_CODE_MODEL].to_h { |name| [name, nil] }
-                                                         .merge('CLAUDE_CODE_BIN' => '/nonexistent/claude').freeze
+                     ANTHROPIC_API_URL CLAUDE_CODE_MODEL GEMINI_API_KEY GEMINI_MODEL GEMINI_API_URL]
+                  .to_h { |name| [name, nil] }
+                  .merge('CLAUDE_CODE_BIN' => '/nonexistent/claude').freeze
 
   def setup
     @home = Dir.mktmpdir
@@ -136,7 +137,8 @@ class CliTest < Minitest::Test
     status = json(run_cli('--status', env: { 'ANTHROPIC_API_KEY' => 'a' }).first)
 
     assert_equal ['claude', true], status.values_at('provider', 'configured')
-    assert_equal([%w[deepl DeepL] + [false], %w[claude Claude] + [true], ['claude-code', 'Claude Code', false]],
+    assert_equal([%w[deepl DeepL] + [false], %w[claude Claude] + [true], ['claude-code', 'Claude Code', false],
+                  %w[gemini Gemini] + [false]],
                  status['providers'].map { |p| p.values_at('id', 'label', 'configured') })
     assert_match(/DEEPL_AUTH_KEY/, status['providers'].first['setupHint'])
   end
@@ -147,6 +149,17 @@ class CliTest < Minitest::Test
                              env: { 'CLAUDE_CODE_BIN' => fake.bin })
 
       assert_equal [0, 'Hallo', 'EN', 'claude-code'], [code, *json(out).values_at('text', 'detectedSource', 'provider')]
+    end
+  end
+
+  def test_translates_with_gemini
+    body = { candidates: [{ content: { parts: [{ text: '{"detected_source":"en","text":"Hallo"}' }] },
+                            finishReason: 'STOP' }] }
+    FakeAPI.open(body: body) do |server|
+      out, _, code = run_cli('--json', '--provider', 'gemini', '--to', 'DE', 'Hello',
+                             env: { 'GEMINI_API_KEY' => 'g', 'GEMINI_API_URL' => server.url })
+
+      assert_equal [0, 'Hallo', 'EN', 'gemini'], [code, *json(out).values_at('text', 'detectedSource', 'provider')]
     end
   end
 

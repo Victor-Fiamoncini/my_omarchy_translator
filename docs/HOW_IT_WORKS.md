@@ -237,8 +237,9 @@ straight to Ruby's `ARGV` and no shell ever interprets it, so input like
 | `manifest.json` | Tells Omarchy "I'm a bar widget, my entry point is `BarWidget.qml`" |
 | `BarWidget.qml` | The icon in the bar. Handles clicks and owns the popup via a `Loader` |
 | `Panel.qml` | The popup: state, UI, and the `Process` calls to Ruby |
-| `ProviderLogo.qml` | A provider's logo (an SVG path drawn with `QtQuick.Shapes`, tinted with the theme colour) for the provider buttons |
-| `PanelLogic.js` | The popup's pure functions (dropdown and provider options, labels, footer hints, swap). A `.pragma library` JS file imported as `Logic`, so `test/qml/` can test it without the shell |
+| `ProviderDropdown.qml` | The provider picker. `qs.Ui`'s `Dropdown` only renders text, so this copies its trigger, popup and keys (same theme tokens) and adds each provider's logo and a dimmed "not set up" row for providers without settings |
+| `ProviderLogo.qml` | A provider's logo (an SVG path drawn with `QtQuick.Shapes`, tinted with the theme colour) for the provider picker |
+| `PanelLogic.qml` | The popup's pure functions (dropdown and provider options, labels, footer hints, swap). A plain `QtObject` that `Panel.qml` declares as `PanelLogic { id: logic }`, so `test/qml/` can test it without the shell |
 | `bin/omarchy-translate` | The CLI: parses options, reads text, prints the result or JSON |
 | `lib/omarchy_translator.rb` | Language tables, `normalize`, the `PROVIDERS` registry |
 | `lib/omarchy_translator/providers/` | One client per provider (HTTP, or the local `claude` CLI for Claude Code), all subclasses of `Provider` (`base.rb`) |
@@ -334,10 +335,13 @@ same way for each. A provider whose API uses other codes maps them on the way
 out (`wire_code`), and the language it detects is mapped back to a canonical
 code (`canonical_source`).
 
-The Claude provider uses `LLMTranslation`. It sends the language *names* in a
+The Claude and Gemini providers use `LLMTranslation`. It sends the language *names* in a
 system prompt, wraps the text in `<text>` tags so the model treats it as data,
 and asks for `{"detected_source","text"}` JSON, enforced through structured
-outputs. A reply in plain text still works: the text is used as the translation.
+outputs (Claude's `output_config.format`, Gemini's `responseJsonSchema`). A reply
+in plain text still works: the text is used as the translation. Gemini calls
+`v1beta/models/<model>:generateContent` with the key in `x-goog-api-key`. A bad key
+comes back as a 400 (`API_KEY_INVALID`), not a 401, so the client maps that one itself.
 
 The Claude Code provider reuses the same prompt but doesn't make an HTTP call.
 It runs the local `claude` CLI headless (`claude -p --output-format json
@@ -350,8 +354,31 @@ tests swap in a script from `test/support/fake_claude.rb` through that setting.
 
 `Config#provider` picks the active provider in this order: the remembered
 one (if it's still configured), then `TRANSLATOR_PROVIDER` (default
-`claude-code`), then the first configured provider. The popup lists every provider as a button with its logo, dims the unconfigured
-ones, and shows that provider's `setupHint` (from `--status`) when one of them is picked.
+`claude-code`), then the first configured provider. The popup's **Translate with**
+dropdown lists every provider with its logo, the configured ones first. It dims the
+others and shows that provider's `setupHint` (from `--status`) when one of them is picked.
+
+### Testing the QML
+
+`script/test-qml` runs `qmltestrunner` headless (`QT_QPA_PLATFORM=offscreen`) on
+`test/qml/tst_*.qml`:
+
+- `tst_panel_logic.qml` unit-tests the pure functions in `PanelLogic.qml`.
+- `tst_panel.qml` and `tst_bar_widget.qml` are component tests. They create the
+  real `Panel.qml` / `BarWidget.qml`, type with `keyClick`, click with
+  `mouseClick`, and check the argv sent to the CLI and what the popup shows.
+
+The real `qs.Commons` and `qs.Ui` load as they are. Quickshell itself can't:
+its QML plugin is compiled into the `quickshell` binary, and its windows need a
+Wayland compositor. So `test/qml/stubs` stands in for the parts the widget
+touches. `Quickshell.execDetached` is recorded, and `Process` asks
+`FakeProcesses.respond(argv)` for its stdout (return `null` to simulate a CLI
+that hangs). `KeyboardPanel`, a layer-shell window, becomes a plain `Item`.
+`script/qs-imports` builds the `qs/` import layout in a temporary directory,
+swapping in the stubbed `KeyboardPanel`.
+
+The CLI behind `Process` is covered by the Ruby tests. Pixels and theming
+still need a look after `mise run reload`.
 
 ### Why the Ruby side is a separate process
 

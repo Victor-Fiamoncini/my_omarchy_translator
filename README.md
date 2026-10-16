@@ -1,12 +1,13 @@
 # Omarchy Translator
 
 A translator in your [Omarchy](https://omarchy.org) 4 bar, backed by the provider of
-your choice: [DeepL](https://www.deepl.com) or [Claude](https://claude.com) (through the API
-or your [Claude Code](https://claude.com/claude-code) login).
+your choice: [DeepL](https://www.deepl.com), [Claude](https://claude.com) (through the API
+or your [Claude Code](https://claude.com/claude-code) login) or Google
+[Gemini](https://ai.google.dev) (a free API key works).
 Click the 󰗊 icon, type, press Enter.
 
 <p align="center">
-  <img src=".github/screenshot.png" width="483" alt="The translator popup: provider buttons (DeepL, Claude, Claude Code), English → Portuguese (Brazil), the typed text and its translation">
+  <img src=".github/screenshot.png" width="483" alt="The translator popup: the Translate with dropdown set to Claude Code, English → Portuguese (Brazil), the typed text and its translation">
 </p>
 
 New to QML or curious how the pieces fit? Read **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)**.
@@ -24,8 +25,9 @@ The translation is done by a small Ruby CLI that uses only the standard library.
 
 In the popup: <kbd>Enter</kbd> translates, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new
 line, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> or the 󰆏 button copies the result (or select part
-of it with the mouse), <kbd>Esc</kbd> closes, and 󰓡 swaps the languages. The buttons above the languages (each with the
-provider's logo) switch provider; the ones you haven't set up are dimmed and show what to add when picked.
+of it with the mouse), <kbd>Esc</kbd> closes, and 󰓡 swaps the languages. The **Translate with** dropdown above the
+languages switches provider: the ones you've set up come first, the others are dimmed (marked "not set up") and show
+what to add when picked.
 The last provider and languages you used are remembered.
 
 Text is cleaned up before it goes to the provider, whichever way it came in (popup, clipboard
@@ -39,7 +41,8 @@ characters) are dropped. Blank-line paragraph breaks, punctuation and accents ar
 - Omarchy 4 (Quickshell bar)
 - Ruby 4.0 (managed with [mise](https://mise.jdx.dev), see `mise.toml`)
 - At least one provider (see [Providers](#providers)). The easiest start is a DeepL key:
-  the [free plan](https://www.deepl.com/pro-api) gives 500k characters/month. If you
+  the [free plan](https://www.deepl.com/pro-api) gives 500k characters/month. A free
+  [Gemini key](https://aistudio.google.com/apikey) needs no billing either. If you
   already use [Claude Code](https://claude.com/claude-code), it works with no key at all.
 - For middle-click OCR: `slurp`, `grim`, `tesseract` (all shipped with Omarchy)
 
@@ -100,6 +103,7 @@ every provider and dims the ones that aren't configured yet.
 |---|---|---|
 | DeepL (`deepl`) | `DEEPL_AUTH_KEY` (`DEEPL_API_URL` optional) | Strong quality for European languages. Keys ending in `:fx` use the free endpoint (500k chars/month) |
 | Claude (`claude`) | `ANTHROPIC_API_KEY` (`ANTHROPIC_MODEL`, `ANTHROPIC_API_URL` optional) | Defaults to `claude-opus-5-5` at low effort; set `ANTHROPIC_MODEL=claude-haiku-5-5` for faster, cheaper translations |
+| Gemini (`gemini`) | `GEMINI_API_KEY` (`GEMINI_MODEL`, `GEMINI_API_URL` optional) | Free: create a key at [Google AI Studio](https://aistudio.google.com/apikey), no billing needed. Defaults to `gemini-3.5-flash-lite`. The free tier has daily request limits per model (see your quota in AI Studio), and Google may use free-tier prompts to improve its products, so don't send anything private. Set `GEMINI_MODEL=gemini-3.8-flash` for higher quality but a lower free quota |
 | Claude Code (`claude-code`) | None: needs the `claude` CLI on `PATH` and a login (`CLAUDE_CODE_BIN`, `CLAUDE_CODE_MODEL` optional) | Uses your Claude Code subscription instead of an API key, so translations count toward its usage limits. Each request starts the CLI (a few seconds). Uses Claude Code's default model at low effort; set `CLAUDE_CODE_MODEL=haiku` for speed |
 
 Example:
@@ -107,6 +111,7 @@ Example:
 ```sh
 DEEPL_AUTH_KEY=your-key:fx
 ANTHROPIC_API_KEY=sk-ant-…
+GEMINI_API_KEY=AIza…
 CLAUDE_CODE_MODEL=haiku       # optional: faster Claude Code translations
 TRANSLATOR_PROVIDER=deepl     # optional: default (else claude-code) before you pick one
 ```
@@ -197,7 +202,7 @@ and point the widget at the URL it prints:
 printf 'DEEPL_AUTH_KEY=anything\nDEEPL_API_URL=http://127.0.0.1:<port>\n' >> ~/.config/omarchy/translator.env
 ```
 
-Then pick DeepL in the popup's provider buttons. Remove those two lines when you're done.
+Then pick DeepL in the popup's **Translate with** dropdown. Remove those two lines when you're done.
 
 ### Quality gates
 
@@ -210,10 +215,10 @@ gates whose name contains "tests".
 |---|---|---|
 | Ruby lint and format | RuboCop + `rubocop-minitest` + `rubocop-rake` | `.rubocop.yml` |
 | Formatting | `.editorconfig` rules (LF, final newline, no trailing whitespace or tabs) on QML, JS, shell, Markdown, JSON, TOML | `script/check-format` |
-| QML lint | Qt 6 `qmllint` against the live shell's `qs.*` modules | `script/lint-qml` |
+| QML lint | Qt 6 `qmllint`: the plugin against the live shell's `qs.*` modules, and the QML tests against their stubs | `script/lint-qml` |
 | Gem audit | `bundler-audit` against the latest advisory database (dev gems only; the runtime has none) | `Gemfile.lock` |
 | Tests + coverage | Minitest: every provider client over a real local socket, config, and the CLI binary end to end. SimpleCov measures line and branch coverage, including the CLI child processes, and fails below the floor | `test/`, `test/support/coverage.rb` |
-| QML tests | Qt 6 `qmltestrunner` (headless) on the popup's logic in `PanelLogic.js` | `test/qml/`, `script/test-qml` |
+| QML tests | Qt 6 `qmltestrunner` (headless): unit tests for `PanelLogic.qml`, and component tests that drive the real `Panel.qml` and `BarWidget.qml` with keys and clicks, with Quickshell stubbed out | `test/qml/`, `test/qml/stubs/`, `script/test-qml` |
 | Plugin manifest | `omarchy plugin validate` | `manifest.json` |
 
 The coverage report is written to `coverage/index.html` (git-ignored). The gem audit needs
@@ -230,16 +235,18 @@ Why there's no hot reload, and the rest of the project's conventions, are in
 ```
 manifest.json              Omarchy plugin manifest
 BarWidget.qml / Panel.qml  Bar icon and popup (QML)
-ProviderLogo.qml           Provider logos for the popup's provider buttons
-PanelLogic.js              The popup's pure logic (labels, options, swap), tested headless
+ProviderDropdown.qml       The popup's provider picker (a dropdown with logos)
+ProviderLogo.qml           Provider logos for the provider picker
+PanelLogic.qml             The popup's pure logic (labels, options, swap), tested headless
 bin/omarchy-translate      CLI
 bin/ci                     Runs every quality gate
 lib/omarchy_translator.rb  Language tables, text cleanup, provider registry
 lib/omarchy_translator/    Config and one client per provider (providers/)
 script/lint-qml            QML lint gate
 script/test-qml            QML test gate (qmltestrunner)
+script/qs-imports          Lays out Omarchy's qs.* modules for qmllint and qmltestrunner
 script/check-format        Formatting gate for non-Ruby files
-test/                      Minitest suite (+ support/), QML tests in test/qml/
+test/                      Minitest suite (+ support/), QML tests in test/qml/ (Quickshell stubs in stubs/)
 docs/HOW_IT_WORKS.md       QML primer and architecture
 ```
 
