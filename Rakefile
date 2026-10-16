@@ -14,7 +14,7 @@ task :qml do
   sh 'script/lint-qml'
 end
 
-desc 'Run the QML tests (PanelLogic.js) with qmltestrunner'
+desc 'Run the QML tests (PanelLogic, Panel and BarWidget) with qmltestrunner'
 task :qml_test do
   sh 'script/test-qml'
 end

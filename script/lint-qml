@@ -12,16 +12,13 @@ QMLLINT=${QMLLINT:-/usr/lib/qt6/bin/qmllint}
 SHELL_DIR=${OMARCHY_SHELL_DIR:-/usr/share/omarchy/shell}
 cd "$(dirname "$0")/.."
 
-[[ -x $QMLLINT ]] || { echo "lint-qml: Qt 6 qmllint not found at $QMLLINT" >&2; exit 1; }
-[[ -d $SHELL_DIR/Commons ]] || { echo "lint-qml: Omarchy shell not found at $SHELL_DIR" >&2; exit 1; }
+source script/qs-imports
 
-# qmllint resolves `import qs.Commons` as <import dir>/qs/Commons. Build that
-# layout outside the repo (plugin folders must not contain symlinks).
+[[ -x $QMLLINT ]] || { echo "lint-qml: Qt 6 qmllint not found at $QMLLINT" >&2; exit 1; }
+
 imports=$(mktemp -d)
 trap 'rm -rf "$imports"' EXIT
-mkdir -p "$imports/qs"
-ln -s "$SHELL_DIR/Commons" "$imports/qs/Commons"
-ln -s "$SHELL_DIR/Ui" "$imports/qs/Ui"
+qs_imports "$imports" || exit 1
 
 output=$("$QMLLINT" -I "$imports" -I /usr/lib/qt6/qml ./*.qml 2>&1) || true
 

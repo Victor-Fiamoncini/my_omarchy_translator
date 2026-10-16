@@ -251,6 +251,7 @@ Panel {
 
             delegate: Button {
               id: chip
+              objectName: `provider-${chip.modelData.value}`
               required property var modelData
               readonly property color contentColor: chip.selected
                   ? Style.selectedStateColor(root.barForeground, Color.accent) : root.barForeground
@@ -311,6 +312,7 @@ Panel {
 
           PanelActionButton {
             id: swapButton
+            objectName: "swapButton"
             anchors.verticalCenter: sourceDropdown.verticalCenter
             iconText: "󰓡"
             tooltipText: "Swap languages"
@@ -353,6 +355,7 @@ Panel {
 
           TextArea {
             id: inputField
+            objectName: "inputField"
             placeholderText: "Type or paste text · Enter to translate"
             wrapMode: TextArea.Wrap
             textFormat: TextEdit.PlainText
@@ -398,6 +401,7 @@ Panel {
 
           TextEdit {
             id: resultEdit
+            objectName: "resultText"
             anchors.fill: parent
             anchors.margins: Style.space(12)
             anchors.rightMargin: copyButton.width + Style.space(16)
@@ -417,6 +421,7 @@ Panel {
 
           PanelActionButton {
             id: copyButton
+            objectName: "copyButton"
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: Style.space(8)
@@ -430,6 +435,7 @@ Panel {
         }
 
         Text {
+          objectName: "footer"
           width: parent.width
           textFormat: Text.PlainText
           horizontalAlignment: Text.AlignRight
