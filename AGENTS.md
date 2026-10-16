@@ -17,7 +17,7 @@ Two halves, split on purpose:
 
 | Layer | Files | Language | Role |
 |---|---|---|---|
-| UI | `BarWidget.qml`, `Panel.qml`, `ProviderLogo.qml`, `PanelLogic.qml` | QML | Bar icon + popup. Runs inside `omarchy-shell`. |
+| UI | `BarWidget.qml`, `Panel.qml`, `ProviderDropdown.qml`, `ProviderLogo.qml`, `PanelLogic.qml` | QML | Bar icon + popup. Runs inside `omarchy-shell`. |
 | Logic | `lib/`, `bin/omarchy-translate` | Ruby 4.0 | Provider clients + CLI. Run by the UI as a subprocess. |
 
 The QML never talks to the network. It runs `bin/omarchy-translate --json …` via
@@ -28,7 +28,8 @@ Quickshell `Process` and parses one JSON object from stdout.
 ```
 manifest.json              Omarchy plugin manifest (id: local.translator)
 BarWidget.qml              Bar pill: left=popup, right=clipboard, middle=OCR region
-Panel.qml                  Popup: provider buttons, language dropdowns, multi-line input, result card
+Panel.qml                  Popup: provider dropdown, language dropdowns, multi-line input, result card
+ProviderDropdown.qml       Provider picker: qs.Ui Dropdown's look and keys, plus logos and "not set up" rows
 ProviderLogo.qml           Provider logo (Simple Icons SVG path via QtQuick.Shapes, theme-tinted)
 PanelLogic.qml             Popup's pure logic (options, labels, footer, swap), declared in Panel as `logic`
 bin/omarchy-translate      CLI entry point (OptionParser)
@@ -142,7 +143,9 @@ needs tests that keep it there; raise the floor when coverage goes up, never
 lower it. CLI tests must pass `CoverageSupport.env` to the child process, as
 `run_cli` does, or the CLI's lines don't count.
 
-`script/lint-qml` ignores `[missing-property]` on purpose: Omarchy's host
+`script/lint-qml` also lints `test/qml` (tests and stubs) with `--bare`, so the
+stubs aren't shadowed by the real Quickshell; there every warning fails. For the
+plugin's own QML it ignores `[missing-property]` on purpose: Omarchy's host
 objects (`bar`, `Loader.item`) are dynamically typed, so qmllint can't see their
 members (the first-party widgets produce the same warning). Any other category
 (`unqualified`, `import`, `incompatible-type`, …) fails the gate. `qmlformat` is

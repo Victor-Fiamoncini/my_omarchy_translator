@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-# Lint the plugin's QML with Qt 6 qmllint against the running Omarchy shell's
-# qs.* modules.
+# Lint QML with Qt 6 qmllint, in two passes:
 #
-# Omarchy's host objects (`bar`, Loader items) are dynamically typed, so
-# qmllint cannot see their members: [missing-property] is expected (the
-# first-party widgets produce the same) and is ignored. Any other warning
-# category or error fails the gate.
+# 1. The plugin's QML against the running Omarchy shell's qs.* modules.
+#    Omarchy's host objects (`bar`, Loader items) are dynamically typed, so
+#    qmllint cannot see their members: [missing-property] is expected (the
+#    first-party widgets produce the same) and is ignored.
+# 2. The QML tests and their stubs against test/qml/stubs, the way
+#    script/test-qml loads them. --bare keeps the real Quickshell (in Qt's own
+#    import path) from shadowing the stubs. Every warning counts here.
+#
+# Any other warning category or error fails the gate.
 set -euo pipefail
 
 QMLLINT=${QMLLINT:-/usr/lib/qt6/bin/qmllint}
 SHELL_DIR=${OMARCHY_SHELL_DIR:-/usr/share/omarchy/shell}
+QT_QML=${QT_QML_DIR:-/usr/lib/qt6/qml}
 cd "$(dirname "$0")/.."
 
 source script/qs-imports
@@ -17,10 +22,12 @@ source script/qs-imports
 [[ -x $QMLLINT ]] || { echo "lint-qml: Qt 6 qmllint not found at $QMLLINT" >&2; exit 1; }
 
 imports=$(mktemp -d)
-trap 'rm -rf "$imports"' EXIT
+test_imports=$(mktemp -d)
+trap 'rm -rf "$imports" "$test_imports"' EXIT
 qs_imports "$imports" || exit 1
+qs_imports "$test_imports" test/qml/stubs || exit 1
 
-output=$("$QMLLINT" -I "$imports" -I /usr/lib/qt6/qml ./*.qml 2>&1) || true
+output=$("$QMLLINT" -I "$imports" -I "$QT_QML" ./*.qml 2>&1) || true
 
 problems=$(grep -E '^(Warning|Error|Critical)' <<<"$output" | grep -v '\[missing-property\]$' || true)
 if [[ -n $problems ]]; then
@@ -28,5 +35,13 @@ if [[ -n $problems ]]; then
   exit 1
 fi
 
+test_files=(test/qml/*.qml test/qml/stubs/*/*.qml test/qml/stubs/*/*/*.qml)
+test_output=$("$QMLLINT" --bare -I test/qml/stubs -I "$test_imports" -I "$QT_QML" -I . "${test_files[@]}" 2>&1) || true
+if grep -qE '^(Warning|Error|Critical)' <<<"$test_output"; then
+  echo "$test_output"
+  exit 1
+fi
+
 ignored=$(grep -c '\[missing-property\]$' <<<"$output" || true)
-echo "qmllint: $(ls ./*.qml | wc -l) files OK (${ignored} dynamic-typing [missing-property] warnings ignored)"
+echo "qmllint: $(ls ./*.qml | wc -l) plugin files OK (${ignored} dynamic-typing [missing-property] warnings ignored)," \
+  "${#test_files[@]} test files OK"

@@ -25,8 +25,9 @@ The translation is done by a small Ruby CLI that uses only the standard library.
 
 In the popup: <kbd>Enter</kbd> translates, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new
 line, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> or the 󰆏 button copies the result (or select part
-of it with the mouse), <kbd>Esc</kbd> closes, and 󰓡 swaps the languages. The buttons above the languages (each with the
-provider's logo) switch provider; the ones you haven't set up are dimmed and show what to add when picked.
+of it with the mouse), <kbd>Esc</kbd> closes, and 󰓡 swaps the languages. The **Translate with** dropdown above the
+languages switches provider: the ones you've set up come first, the others are dimmed (marked "not set up") and show
+what to add when picked.
 The last provider and languages you used are remembered.
 
 Text is cleaned up before it goes to the provider, whichever way it came in (popup, clipboard
@@ -201,7 +202,7 @@ and point the widget at the URL it prints:
 printf 'DEEPL_AUTH_KEY=anything\nDEEPL_API_URL=http://127.0.0.1:<port>\n' >> ~/.config/omarchy/translator.env
 ```
 
-Then pick DeepL in the popup's provider buttons. Remove those two lines when you're done.
+Then pick DeepL in the popup's **Translate with** dropdown. Remove those two lines when you're done.
 
 ### Quality gates
 
@@ -214,7 +215,7 @@ gates whose name contains "tests".
 |---|---|---|
 | Ruby lint and format | RuboCop + `rubocop-minitest` + `rubocop-rake` | `.rubocop.yml` |
 | Formatting | `.editorconfig` rules (LF, final newline, no trailing whitespace or tabs) on QML, JS, shell, Markdown, JSON, TOML | `script/check-format` |
-| QML lint | Qt 6 `qmllint` against the live shell's `qs.*` modules | `script/lint-qml` |
+| QML lint | Qt 6 `qmllint`: the plugin against the live shell's `qs.*` modules, and the QML tests against their stubs | `script/lint-qml` |
 | Gem audit | `bundler-audit` against the latest advisory database (dev gems only; the runtime has none) | `Gemfile.lock` |
 | Tests + coverage | Minitest: every provider client over a real local socket, config, and the CLI binary end to end. SimpleCov measures line and branch coverage, including the CLI child processes, and fails below the floor | `test/`, `test/support/coverage.rb` |
 | QML tests | Qt 6 `qmltestrunner` (headless): unit tests for `PanelLogic.qml`, and component tests that drive the real `Panel.qml` and `BarWidget.qml` with keys and clicks, with Quickshell stubbed out | `test/qml/`, `test/qml/stubs/`, `script/test-qml` |
@@ -234,7 +235,8 @@ Why there's no hot reload, and the rest of the project's conventions, are in
 ```
 manifest.json              Omarchy plugin manifest
 BarWidget.qml / Panel.qml  Bar icon and popup (QML)
-ProviderLogo.qml           Provider logos for the popup's provider buttons
+ProviderDropdown.qml       The popup's provider picker (a dropdown with logos)
+ProviderLogo.qml           Provider logos for the provider picker
 PanelLogic.qml             The popup's pure logic (labels, options, swap), tested headless
 bin/omarchy-translate      CLI
 bin/ci                     Runs every quality gate

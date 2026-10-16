@@ -237,7 +237,8 @@ straight to Ruby's `ARGV` and no shell ever interprets it, so input like
 | `manifest.json` | Tells Omarchy "I'm a bar widget, my entry point is `BarWidget.qml`" |
 | `BarWidget.qml` | The icon in the bar. Handles clicks and owns the popup via a `Loader` |
 | `Panel.qml` | The popup: state, UI, and the `Process` calls to Ruby |
-| `ProviderLogo.qml` | A provider's logo (an SVG path drawn with `QtQuick.Shapes`, tinted with the theme colour) for the provider buttons |
+| `ProviderDropdown.qml` | The provider picker. `qs.Ui`'s `Dropdown` only renders text, so this copies its trigger, popup and keys (same theme tokens) and adds each provider's logo and a dimmed "not set up" row for providers without settings |
+| `ProviderLogo.qml` | A provider's logo (an SVG path drawn with `QtQuick.Shapes`, tinted with the theme colour) for the provider picker |
 | `PanelLogic.qml` | The popup's pure functions (dropdown and provider options, labels, footer hints, swap). A plain `QtObject` that `Panel.qml` declares as `PanelLogic { id: logic }`, so `test/qml/` can test it without the shell |
 | `bin/omarchy-translate` | The CLI: parses options, reads text, prints the result or JSON |
 | `lib/omarchy_translator.rb` | Language tables, `normalize`, the `PROVIDERS` registry |
@@ -353,8 +354,9 @@ tests swap in a script from `test/support/fake_claude.rb` through that setting.
 
 `Config#provider` picks the active provider in this order: the remembered
 one (if it's still configured), then `TRANSLATOR_PROVIDER` (default
-`claude-code`), then the first configured provider. The popup lists every provider as a button with its logo, dims the unconfigured
-ones, and shows that provider's `setupHint` (from `--status`) when one of them is picked.
+`claude-code`), then the first configured provider. The popup's **Translate with**
+dropdown lists every provider with its logo, the configured ones first. It dims the
+others and shows that provider's `setupHint` (from `--status`) when one of them is picked.
 
 ### Testing the QML
 

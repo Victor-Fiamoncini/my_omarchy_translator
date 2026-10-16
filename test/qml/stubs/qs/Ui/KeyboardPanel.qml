@@ -10,7 +10,6 @@ Item {
   property var owner: null
   property bool open: false
   property Item focusTarget: null
-  property int padding: 0
   property int contentWidth: 280
   property int contentHeight: 200
 

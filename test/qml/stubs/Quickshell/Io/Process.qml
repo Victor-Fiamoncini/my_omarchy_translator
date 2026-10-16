@@ -8,11 +8,7 @@ QtObject {
   property var command: []
   property bool running: false
   property var stdout: null
-  property var stderr: null
-  property var environment: ({})
-  property string workingDirectory: ""
 
-  signal started()
   signal exited(int exitCode, int exitStatus)
 
   onRunningChanged: if (running) FakeProcesses.start(root)
