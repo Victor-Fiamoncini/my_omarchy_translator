@@ -7,7 +7,7 @@ or your [Claude Code](https://claude.com/claude-code) login) or Google
 Click the 󰗊 icon, type, press Enter.
 
 <p align="center">
-  <img src=".github/screenshot.png" width="483" alt="The translator popup: provider buttons (DeepL, Claude, Claude Code), English → Portuguese (Brazil), the typed text and its translation">
+  <img src=".github/screenshot.png" width="483" alt="The translator popup: the Translate with dropdown set to Claude Code, English → Portuguese (Brazil), the typed text and its translation">
 </p>
 
 New to QML or curious how the pieces fit? Read **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)**.
